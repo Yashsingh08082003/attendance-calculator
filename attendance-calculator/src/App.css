@@ -1,0 +1,78 @@
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #12121a;
+  color: #e0e0e0;
+}
+
+.main-wrapper {
+  display: flex;
+  gap: 40px;
+  padding: 30px;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.container {
+  background: #1e1e28;
+  padding: 25px;
+  border-radius: 15px;
+  box-shadow: 8px 8px 12px #14141c, -8px -8px 12px #2c2c38;
+  width: 300px;
+}
+
+form label {
+  display: block;
+  margin-top: 10px;
+}
+
+input {
+  width: 100%;
+  padding: 8px;
+  margin-top: 4px;
+  border: none;
+  border-radius: 8px;
+  background: #2c2c38;
+  color: #fff;
+}
+
+.week-inputs label {
+  margin-bottom: 5px;
+}
+
+.buttons {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  flex: 1;
+  padding: 10px;
+  background: #32e875;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+button:hover {
+  background: #29c96f;
+}
+
+.result-panel {
+  background: #1e1e28;
+  padding: 25px;
+  border-radius: 15px;
+  box-shadow: 8px 8px 12px #14141c, -8px -8px 12px #2c2c38;
+  width: 300px;
+}
+
+.summary p {
+  margin: 10px 0;
+}
+
+.chart {
+  margin-top: 20px;
+}

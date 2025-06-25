@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Attendance Calculator - Neumorphic Dark Mode</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #1e1e28;
+      --light-shadow: #2c2c38;
+      --dark-shadow: #14141c;
+      --text: #e0e0e0;
+    }
+
+    body {
+      background: var(--bg);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      background: var(--bg);
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 9px 9px 16px var(--dark-shadow), -9px -9px 16px var(--light-shadow);
+      max-width: 900px;
+      width: 100%;
+      animation: fadeIn 0.6s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: var(--text);
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .row label {
+      flex: 1 1 calc(33.33% - 20px);
+    }
+
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+      color: var(--text);
+    }
+
+    input[type="number"],
+    input[type="date"] {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border: none;
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--text);
+      box-shadow: inset 6px 6px 10px var(--dark-shadow), inset -6px -6px 10px var(--light-shadow);
+      font-size: 16px;
+    }
+
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+      cursor: pointer;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 20px;
+      background: var(--bg);
+      border: none;
+      border-radius: 10px;
+      box-shadow: 6px 6px 12px var(--dark-shadow), -6px -6px 12px var(--light-shadow);
+      font-size: 16px;
+      font-weight: bold;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+    }
+
+    button:hover {
+      box-shadow: inset 4px 4px 8px var(--dark-shadow), inset -4px -4px 8px var(--light-shadow);
+    }
+
+    .result, .weekly-total, .chart-block, .final-summary {
+      margin-top: 30px;
+      padding: 20px;
+      border-radius: 15px;
+      background: var(--bg);
+      box-shadow: inset 6px 6px 12px var(--dark-shadow), inset -6px -6px 12px var(--light-shadow);
+      color: var(--text);
+      animation: fadeIn 0.5s ease-in-out;
+    }
+
+    .chart-block canvas {
+      width: 140px !important;
+      height: 140px !important;
+      display: block;
+      margin: auto;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Attendance Calculator</h1>
+    <form id="attendanceForm">
+      <label>Classes per week:</label>
+      <div class="row">
+        <label>Monday:<input type="number" id="mon" min="0" max="8" value="0"></label>
+        <label>Tuesday:<input type="number" id="tue" min="0" max="8" value="0"></label>
+        <label>Wednesday:<input type="number" id="wed" min="0" max="8" value="0"></label>
+        <label>Thursday:<input type="number" id="thu" min="0" max="8" value="0"></label>
+        <label>Friday:<input type="number" id="fri" min="0" max="8" value="0"></label>
+        <label>Saturday:<input type="number" id="sat" min="0" max="8" value="0"></label>
+      </div>
+
+      <div class="weekly-total" id="weeklyTotal">Total Classes Per Week: 0</div>
+
+      <div class="row">
+        <label>Classes Attended:<input type="number" id="attended" min="0" required></label>
+        <label>Total Classes Held:<input type="number" id="held" min="0" required></label>
+        <label>Semester End Date:<input type="date" id="endDate" required></label>
+        <label>Target Attendance (%):<input type="number" id="target" min="0" max="100" value="75" required></label>
+      </div>
+
+      <div class="button-group">
+        <button type="submit">Calculate</button>
+        <button type="button" onclick="resetForm()">Reset</button>
+      </div>
+    </form>
+
+    <div class="chart-block">
+      <canvas id="attendanceChart"></canvas>
+    </div>
+
+    <div class="final-summary" id="summaryBlock" style="display:none"></div>
+    <div class="result" id="result" style="display:none"></div>
+  </div>
+
+  <script>
+    const classInputs = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    let chart;
+
+    function updateWeeklyTotal() {
+      let total = classInputs.reduce((sum, day) => {
+        const val = parseInt(document.getElementById(day).value) || 0;
+        return sum + (val > 8 ? 8 : val);
+      }, 0);
+      document.getElementById('weeklyTotal').innerText = `Total Classes Per Week: ${total}`;
+    }
+
+    function renderChart(attended, held) {
+      const ctx = document.getElementById('attendanceChart').getContext('2d');
+      const missed = Math.max(held - attended, 0);
+
+      if (chart) chart.destroy();
+
+      chart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Attended', 'Missed'],
+          datasets: [{
+            data: [attended, missed],
+            backgroundColor: ['#32e875', '#ff6b6b'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          animation: {
+            animateRotate: true,
+            animateScale: true
+          },
+          plugins: {
+            legend: {
+              labels: {
+                color: '#e0e0e0'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function calculate() {
+      const classesPerDay = {};
+      classInputs.forEach(day => {
+        let val = parseInt(document.getElementById(day).value);
+        if (val > 8) val = 8;
+        classesPerDay[day] = val || 0;
+      });
+
+      const attended = parseInt(document.getElementById('attended').value);
+      const held = parseInt(document.getElementById('held').value);
+      const endDate = new Date(document.getElementById('endDate').value);
+      const today = new Date();
+      const targetPercent = parseFloat(document.getElementById('target').value);
+
+      if (isNaN(attended) || isNaN(held) || isNaN(targetPercent)) return;
+
+      let current = new Date(today);
+      let futureClasses = 0;
+      while (current <= endDate) {
+        let weekday = current.getDay();
+        if (weekday >= 1 && weekday <= 6) {
+          const map = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+          let key = map[weekday];
+          futureClasses += classesPerDay[key] || 0;
+        }
+        current.setDate(current.getDate() + 1);
+      }
+
+      const finalTotal = held + futureClasses;
+      const requiredAttendance = Math.ceil((targetPercent / 100) * finalTotal);
+      const maxAbsentsAllowed = finalTotal - requiredAttendance;
+      const currentAbsents = held - attended;
+      const canBunk = maxAbsentsAllowed - currentAbsents;
+
+      const resultDiv = document.getElementById('result');
+      const summaryDiv = document.getElementById('summaryBlock');
+
+      resultDiv.innerHTML = `<strong>Results:</strong><br>
+        Total Future Classes: <strong>${futureClasses}</strong><br>
+        Final Total Classes: <strong>${finalTotal}</strong><br>
+        Max Classes You Can Miss: <strong>${Math.max(0, canBunk)}</strong><br>`;
+
+      summaryDiv.innerHTML = `
+        <strong>📊 Summary:</strong><br>
+        Total Classes in Semester: <strong>${finalTotal}</strong><br>
+        Minimum Classes to Attend for ${targetPercent}%: <strong>${requiredAttendance}</strong>
+      `;
+
+      if (canBunk < 0) {
+        resultDiv.innerHTML += `<p style='color:#ff6b6b;'>❌ You must attend all future classes to meet your target.</p>`;
+      } else if (canBunk === 0) {
+        resultDiv.innerHTML += `<p style='color:#ffdd57;'>⚠️ You can't miss any more classes.</p>`;
+      } else {
+        resultDiv.innerHTML += `<p style='color:#32e875;'>✅ You can miss <strong>${canBunk}</strong> more classes.</p>`;
+      }
+
+      renderChart(attended, held);
+      resultDiv.style.display = 'block';
+      summaryDiv.style.display = 'block';
+    }
+
+    function resetForm() {
+      document.getElementById('attendanceForm').reset();
+      updateWeeklyTotal();
+      document.getElementById('result').style.display = 'none';
+      document.getElementById('summaryBlock').style.display = 'none';
+      if (chart) chart.destroy();
+    }
+
+    document.getElementById('attendanceForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      calculate();
+    });
+
+    document.getElementById('target').addEventListener('input', () => {
+      if (document.getElementById('result').style.display !== 'none') {
+        calculate();
+      }
+    });
+
+    classInputs.forEach(day => {
+      document.getElementById(day).addEventListener('input', updateWeeklyTotal);
+    });
+
+    updateWeeklyTotal();
+  </script>
+</body>
+</html>
